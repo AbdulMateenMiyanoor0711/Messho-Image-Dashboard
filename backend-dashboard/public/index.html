@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meesho Image Optimizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 p-10">
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-md border border-gray-200">
+        <h1 class="text-3xl font-bold text-center mb-6">Meesho Image Generator (50 Colors + AI)</h1>
+        
+        <input type="file" id="imageUpload" class="mb-4 block w-full border p-2 rounded" accept="image/png, image/jpeg">
+        
+        <div class="flex gap-4 mb-4">
+            <label><input type="radio" name="mode" value="border" checked> Border Trick</label>
+            <label><input type="radio" name="mode" value="full"> Full Background</label>
+        </div>
+
+        <div class="mb-6">
+            <label>Product Size (Border Thickness): <span id="scaleValue">50%</span></label>
+            <input type="range" id="scaleSlider" min="0.1" max="0.9" step="0.05" value="0.5" class="w-full">
+        </div>
+
+        <button id="generateBtn" class="w-full bg-orange-600 text-white font-bold py-3 rounded">Generate Images</button>
+        <p id="loading" class="hidden text-center mt-4 font-bold text-orange-600">Processing... Please wait.</p>
+        
+        <div id="resultsSection" class="hidden mt-8">
+            <button id="downloadAllBtn" class="mb-4 w-full bg-black text-white py-2 rounded">Download All as ZIP</button>
+            <div id="gallery" class="grid grid-cols-4 gap-4"></div>
+        </div>
+    </div>
+
+<script>
+    let generatedData = [];
+    document.getElementById('scaleSlider').addEventListener('input', e => {
+        document.getElementById('scaleValue').innerText = Math.round(e.target.value * 100) + '%';
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+        const file = document.getElementById('imageUpload').files[0];
+        if (!file) return alert('Upload an image.');
+        
+        document.getElementById('loading').classList.remove('hidden');
+        
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('scale', document.getElementById('scaleSlider').value);
+        formData.append('mode', document.querySelector('input[name="mode"]:checked').value);
+
+        const res = await fetch('/api/generate', { method: 'POST', body: formData });
+        const data = await res.json();
+        
+        document.getElementById('loading').classList.add('hidden');
+        if (data.success) {
+            generatedData = data.images;
+            document.getElementById('gallery').innerHTML = data.images.map(img => `<img src="${img.url}" class="w-full border rounded">`).join('');
+            document.getElementById('resultsSection').classList.remove('hidden');
+        }
+    });
+
+    document.getElementById('downloadAllBtn').addEventListener('click', async () => {
+        const zip = new JSZip();
+        generatedData.forEach(img => zip.file(img.filename, img.url.split(',')[1], {base64: true}));
+        const content = await zip.generateAsync({type: "blob"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = "Meesho_Images.zip";
+        a.click();
+    });
+</script>
+</body>
+</html>
