@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
 const path = require('path');
-const cors = require('cors');
+const cors = require('cors'); // Required to prevent crash if listed in package.json
 
 const app = express();
 app.use(cors());
@@ -20,11 +20,8 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
 
     const canvasSize = 1500; 
     const mode = req.body.mode || 'border';
-    
-    // If Full Background is selected, scale is 95%. If Border Trick, use slider scale (default 50%).
     const userScale = mode === 'full' ? 0.95 : (parseFloat(req.body.scale) || 0.5);
     
-    // 50 Colors: 5 shades each of 10 different base colors
     const variations = [
         '#FFEBEE', '#EF9A9A', '#EF5350', '#D32F2F', '#B71C1C', // Reds
         '#E3F2FD', '#90CAF9', '#42A5F5', '#1976D2', '#0D47A1', // Blues
@@ -42,18 +39,11 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
         const generatedImages = [];
         const productSize = Math.floor(canvasSize * userScale);
 
-        // 1. Preprocess product: ensure alpha channel and remove solid white background if it's a JPEG/solid PNG
         let processedImageBuffer = req.file.buffer;
-        
         if (mode === 'border') {
-            // Optional: If you want to auto-remove white background for the border trick, 
-            // ensure the image is processed cleanly with transparency.
-            processedImageBuffer = await sharp(req.file.buffer)
-                .ensureAlpha()
-                .toBuffer();
+            processedImageBuffer = await sharp(req.file.buffer).ensureAlpha().toBuffer();
         }
 
-        // 2. Resize original product once with contain fit
         const resizedProduct = await sharp(processedImageBuffer)
             .resize(productSize, productSize, { 
                 fit: 'contain', 
@@ -61,7 +51,6 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
             })
             .toBuffer();
 
-        // 3. Loop through all 50 colors and composite
         for (let i = 0; i < variations.length; i++) {
             const hexColor = variations[i];
             
