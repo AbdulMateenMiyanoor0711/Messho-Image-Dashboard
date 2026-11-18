@@ -16,7 +16,11 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No image provided.' });
 
     const canvasSize = 1500; 
-    const userScale = parseFloat(req.body.scale) || 0.5;
+    const mode = req.body.mode || 'border';
+    
+    // If Full Background is selected, scale is 95% (to look natural without touching the absolute edge)
+    // If Border Trick is selected, read the slider value.
+    const userScale = mode === 'full' ? 0.95 : (parseFloat(req.body.scale) || 0.5);
     
     // 50 Colors: 5 shades each of 10 different base colors
     const variations = [
@@ -46,7 +50,7 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
         const generatedImages = [];
         const productSize = Math.floor(canvasSize * userScale);
 
-        // 1. Shrink original product once to save processing power
+        // 1. Shrink original product once
         const resizedProduct = await sharp(req.file.buffer)
             .resize(productSize, productSize, { 
                 fit: 'contain', 
@@ -54,7 +58,7 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
             })
             .toBuffer();
 
-        // 2. Loop through all 50 colors instantly
+        // 2. Loop through all 50 colors
         for (let i = 0; i < variations.length; i++) {
             const hexColor = variations[i];
             
@@ -67,15 +71,14 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
                 }
             })
             .composite([{ input: resizedProduct, gravity: 'center' }])
-            .jpeg({ quality: 90 }) // Slightly reduced quality (95 to 90) so the 50-image ZIP downloads faster
+            .jpeg({ quality: 90 }) 
             .toBuffer();
 
             const base64Image = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
             
             generatedImages.push({
                 url: base64Image,
-                // The filename will now include the actual hex color code (e.g., meesho_var_1_FFEBEE.jpg)
-                filename: `meesho_var_${i + 1}_${hexColor.replace('#', '')}.jpg`
+                filename: `meesho_${mode}_var_${i + 1}_${hexColor.replace('#', '')}.jpg`
             });
         }
 
